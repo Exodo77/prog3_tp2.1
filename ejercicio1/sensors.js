@@ -1,4 +1,19 @@
-class Sensor {}
+// sensors.js
+class Sensor {
+    constructor(id, name, type, value, unit, updated_at) {
+        this.id = id;
+        this.name = name;
+        this.type = type;
+        this.value = value;
+        this.unit = unit;
+        this.updated_at = updated_at;
+    }
+
+    set updateValue(newValue) {
+        this.value = newValue;
+        this.updated_at = new Date().toISOString();
+    }
+}
 
 class SensorManager {
     constructor() {
@@ -14,16 +29,16 @@ class SensorManager {
         if (sensor) {
             let newValue;
             switch (sensor.type) {
-                case "temperatura": // Rango de -30 a 50 grados Celsius
+                case "temperature":
                     newValue = (Math.random() * 80 - 30).toFixed(2);
                     break;
-                case "humedad": // Rango de 0 a 100%
+                case "humidity":
                     newValue = (Math.random() * 100).toFixed(2);
                     break;
-                case "presion": // Rango de 960 a 1040 hPa (hectopascales o milibares)
+                case "pressure":
                     newValue = (Math.random() * 80 + 960).toFixed(2);
                     break;
-                default: // Valor por defecto si el tipo es desconocido
+                default:
                     newValue = (Math.random() * 100).toFixed(2);
             }
             sensor.updateValue = newValue;
@@ -33,7 +48,37 @@ class SensorManager {
         }
     }
 
-    async loadSensors(url) {}
+    loadSensors(url) {
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", url, true);
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    data.forEach(sensorData => {
+                        const sensor = new Sensor(
+                            sensorData.id,
+                            sensorData.name,
+                            sensorData.type,
+                            sensorData.value,
+                            sensorData.unit,
+                            sensorData.updated_at
+                        );
+                        this.addSensor(sensor);
+                    });
+                    this.render();
+                } catch (error) {
+                    console.error("Error parsing sensors JSON:", error);
+                }
+            } else {
+                console.error("Failed to load sensors:", xhr.statusText);
+            }
+        };
+        xhr.onerror = () => {
+            console.error("Request error");
+        };
+        xhr.send();
+    }
 
     render() {
         const container = document.getElementById("sensor-container");
@@ -86,5 +131,4 @@ class SensorManager {
 }
 
 const monitor = new SensorManager();
-
 monitor.loadSensors("sensors.json");
