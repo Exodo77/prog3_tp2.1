@@ -10,16 +10,29 @@ class Card {
         const cardElement = document.createElement("div");
         cardElement.classList.add("cell");
         cardElement.innerHTML = `
-          <div class="card" data-name="${this.name}">
-              <div class="card-inner">
-                  <div class="card-front"></div>
-                  <div class="card-back">
-                      <img src="${this.img}" alt="${this.name}">
-                  </div>
-              </div>
-          </div>
-      `;
+            <div class="card" data-name="${this.name}">
+                <div class="card-inner">
+                    <div class="card-front"></div>
+                    <div class="card-back">
+                        <img src="${this.img}" alt="${this.name}">
+                    </div>
+                </div>
+            </div>
+        `;
         return cardElement;
+    }
+
+    toggleFlip() {
+        this.isFlipped = !this.isFlipped;
+        if (this.isFlipped) {
+            this.#flip();
+        } else {
+            this.#unflip();
+        }
+    }
+
+    matches(otherCard) {
+        return this.name === otherCard.name;
     }
 
     #flip() {
@@ -38,24 +51,46 @@ class Board {
         this.cards = cards;
         this.fixedGridElement = document.querySelector(".fixed-grid");
         this.gameBoardElement = document.getElementById("game-board");
+        this.matchedCards = [];
+        this.flippedCards = [];
     }
 
     #calculateColumns() {
         const numCards = this.cards.length;
         let columns = Math.floor(numCards / 2);
-
         columns = Math.max(2, Math.min(columns, 12));
-
         if (columns % 2 !== 0) {
             columns = columns === 11 ? 12 : columns - 1;
         }
-
         return columns;
     }
 
     #setGridColumns() {
         const columns = this.#calculateColumns();
         this.fixedGridElement.className = `fixed-grid has-${columns}-cols`;
+    }
+
+    shuffleCards() {
+        for (let i = this.cards.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [this.cards[i], this.cards[j]] = [this.cards[j], this.cards[i]];
+        }
+    }
+
+    reset() {
+        this.matchedCards = [];
+        this.flippedCards = [];
+        this.shuffleCards();
+        this.flipDownAllCards(); // Voltear todas las cartas al reiniciar
+        this.render();
+    }
+
+    flipDownAllCards() {
+        this.cards.forEach(card => {
+            if (card.isFlipped) {
+                card.toggleFlip();
+            }
+        });
     }
 
     render() {
@@ -79,8 +114,12 @@ class Board {
 class MemoryGame {
     constructor(board, flipDuration = 500) {
         this.board = board;
-        this.flippedCards = [];
         this.matchedCards = [];
+        this.flippedCards = [];
+        this.moves = 0;
+        this.startTime = null;
+        this.endTime = null;
+
         if (flipDuration < 350 || isNaN(flipDuration) || flipDuration > 3000) {
             flipDuration = 350;
             alert(
@@ -93,14 +132,53 @@ class MemoryGame {
     }
 
     #handleCardClick(card) {
+        if (!this.startTime) {
+            this.startTime = new Date(); // Inicia el temporizador al primer clic
+        }
+
         if (this.flippedCards.length < 2 && !card.isFlipped) {
             card.toggleFlip();
             this.flippedCards.push(card);
+            this.moves++; // Incrementa el contador de movimientos
 
             if (this.flippedCards.length === 2) {
                 setTimeout(() => this.checkForMatch(), this.flipDuration);
             }
         }
+    }
+
+    async checkForMatch() {
+        const [card1, card2] = this.flippedCards;
+        if (card1.matches(card2)) {
+            this.matchedCards.push(card1, card2);
+            this.flippedCards = [];
+
+            if (this.matchedCards.length === this.board.cards.length) {
+                await this.finishGame();
+            }
+        } else {
+            setTimeout(() => {
+                card1.toggleFlip();
+                card2.toggleFlip();
+                this.flippedCards = [];
+            }, this.flipDuration);
+        }
+    }
+
+    async finishGame() {
+        this.endTime = new Date();
+        const elapsedTime = (this.endTime - this.startTime) / 1000;
+        alert(`¡Felicidades! Has completado el juego en ${elapsedTime.toFixed(2)} segundos con ${this.moves} movimientos.`);
+        this.board.reset();
+    }
+
+    resetGame() {
+        this.moves = 0;
+        this.startTime = null;
+        this.endTime = null;
+        this.matchedCards = [];
+        this.flippedCards = [];
+        this.board.reset();
     }
 }
 
